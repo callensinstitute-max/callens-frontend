@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #020617;
+  color: white;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+@keyframes callens-shine {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.callens-thinking-shine {
+  color: transparent;
+  background-image: linear-gradient(
+    110deg,
+    rgba(148, 163, 184, 0.92) 0%,
+    rgba(255, 255, 255, 0.98) 42%,
+    rgba(96, 165, 250, 0.95) 50%,
+    rgba(255, 255, 255, 0.98) 58%,
+    rgba(148, 163, 184, 0.92) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: callens-shine 2.2s linear infinite;
+}
