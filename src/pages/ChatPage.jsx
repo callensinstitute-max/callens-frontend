@@ -23,6 +23,7 @@ import Sidebar from "../components/Sidebar";
 const INTERNAL_MODEL = "auto";
 const WORKSPACE_STORAGE_KEY = "callens-selected-workspace";
 const isProduction = import.meta.env.PROD;
+const isDevelopment = import.meta.env.DEV;
 const backendConfigured = !isProduction || IS_CUSTOM_API_CONFIGURED;
 const backendStatusLabel = backendConfigured
   ? `Connected backend: ${API_URL}`
@@ -705,16 +706,18 @@ export default function ChatPage() {
               >
                 {selectedWorkspace || "Loading workspace..."}
               </div>
-              <div
-                className={`mt-2 inline-flex max-w-xl items-center rounded-full px-3 py-1 text-[11px] font-medium ${
-                  backendConfigured
-                    ? "bg-emerald-500/10 text-emerald-200"
-                    : "bg-amber-500/10 text-amber-200"
-                }`}
-                title={backendStatusLabel}
-              >
-                {backendStatusLabel}
-              </div>
+              {isDevelopment && (
+                <div
+                  className={`mt-2 inline-flex max-w-xl items-center rounded-full px-3 py-1 text-[11px] font-medium ${
+                    backendConfigured
+                      ? "bg-emerald-500/10 text-emerald-200"
+                      : "bg-amber-500/10 text-amber-200"
+                  }`}
+                  title={backendStatusLabel}
+                >
+                  {backendStatusLabel}
+                </div>
+              )}
             </div>
 
             <div className="relative" ref={topMenuRef}>
