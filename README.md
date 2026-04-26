@@ -7,7 +7,7 @@ Vite + React frontend prepared for Phase 1 deployment on Vercel.
 Create a local `.env` from `.env.example`:
 
 ```bash
-VITE_API_URL=https://your-api.example.workers.dev
+VITE_API_URL=https://your-api.example.com
 ```
 
 For Vercel, set `VITE_API_URL` to your deployed Cloudflare Worker URL.
@@ -33,7 +33,7 @@ Recommended Vercel settings:
 - Root Directory: `frontend-react`
 - Build Command: `npm run build`
 - Output Directory: `dist`
-- Environment Variable: `VITE_API_URL=https://YOUR-WORKER.workers.dev`
+- Environment Variable: `VITE_API_URL=https://your-api.example.com`
 
 ## Phase 1 Scope
 
