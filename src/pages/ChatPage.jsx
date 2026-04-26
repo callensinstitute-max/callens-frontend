@@ -22,6 +22,7 @@ import Sidebar from "../components/Sidebar";
 
 const INTERNAL_MODEL = "auto";
 const WORKSPACE_STORAGE_KEY = "callens-selected-workspace";
+const SEND_DEBOUNCE_MS = 400;
 const isProduction = import.meta.env.PROD;
 const isDevelopment = import.meta.env.DEV;
 const backendConfigured = !isProduction || IS_CUSTOM_API_CONFIGURED;
@@ -136,6 +137,8 @@ export default function ChatPage() {
   const fileInputRef = useRef(null);
   const activeRequestRef = useRef(null);
   const topMenuRef = useRef(null);
+  const sendDebounceRef = useRef(null);
+  const sendNonceRef = useRef(0);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -150,6 +153,8 @@ export default function ChatPage() {
   }, [input, pendingAttachment]);
 
   useEffect(() => {
+    if (!backendConfigured) return;
+
     const loadChats = async () => {
       try {
         const data = await getChats();
@@ -190,6 +195,8 @@ export default function ChatPage() {
   }, [showSettings]);
 
   useEffect(() => {
+    if (!backendConfigured) return;
+
     const loadWorkspaces = async () => {
       try {
         const data = await getWorkspaces();
@@ -226,6 +233,9 @@ export default function ChatPage() {
   useEffect(() => {
     return () => {
       activeRequestRef.current?.abort();
+      if (sendDebounceRef.current) {
+        clearTimeout(sendDebounceRef.current);
+      }
     };
   }, []);
 
@@ -374,10 +384,6 @@ export default function ChatPage() {
       { role: "user", content: userMessage },
       { role: "assistant", content: "" },
     ]);
-  };
-
-  const appendMessages = (...nextMessages) => {
-    setMessages((prev) => [...prev, ...nextMessages]);
   };
 
   const updateLastAssistantMessage = (content) => {
@@ -569,7 +575,7 @@ export default function ChatPage() {
     );
   };
 
-  const handleSend = async () => {
+  const executeSend = async () => {
     const trimmedInput = input.trim();
     const attachment = pendingAttachment?.file;
 
@@ -625,6 +631,18 @@ export default function ChatPage() {
       clearActiveRequest(controller);
       setLoading(false);
     }
+  };
+
+  const handleSend = () => {
+    sendNonceRef.current += 1;
+    const nonce = sendNonceRef.current;
+    if (sendDebounceRef.current) {
+      clearTimeout(sendDebounceRef.current);
+    }
+    sendDebounceRef.current = window.setTimeout(() => {
+      if (nonce !== sendNonceRef.current) return;
+      executeSend();
+    }, SEND_DEBOUNCE_MS);
   };
 
   const handleStop = () => {

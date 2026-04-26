@@ -1,5 +1,6 @@
 const rawApiUrl = import.meta.env.VITE_API_URL?.trim() || "";
 const USER_ID_STORAGE_KEY = "callens-user-id";
+const inFlightRequests = new Map();
 
 function normalizeApiUrl(url) {
   return url.replace(/\/+$/, "");
@@ -8,8 +9,6 @@ function normalizeApiUrl(url) {
 export const API_URL = normalizeApiUrl(rawApiUrl);
 
 export const IS_CUSTOM_API_CONFIGURED = Boolean(API_URL);
-
-console.log(API_URL);
 
 function getOrCreateUserId() {
   const existing = window.localStorage.getItem(USER_ID_STORAGE_KEY);
@@ -43,6 +42,14 @@ async function readErrorDetails(res) {
   return details;
 }
 
+function normalizeForRequestKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ");
+}
+
 // ===============================
 // 💬 STREAM MESSAGE
 // ===============================
@@ -56,55 +63,70 @@ export async function streamMessage(
   signal
 ) {
   const userId = getOrCreateUserId();
-  const res = await fetch(`${API_URL}/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    signal,
-    body: JSON.stringify({
-      message,
-      chat_id: chatId,
-      userId,
-      stream: true,
-      model,
-      display_message: displayMessage,
-      workspace_root: workspaceRoot,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(await readErrorDetails(res));
+  const requestBody = {
+    message,
+    chat_id: chatId,
+    userId,
+    stream: true,
+    model,
+    display_message: displayMessage,
+    workspace_root: workspaceRoot,
+  };
+  const requestKey = `stream:${chatId || "new"}:${normalizeForRequestKey(message)}`;
+  if (inFlightRequests.has(requestKey)) {
+    return inFlightRequests.get(requestKey);
   }
 
-  const contentType = res.headers.get("content-type") || "";
+  const requestPromise = (async () => {
+    const res = await fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal,
+      body: JSON.stringify(requestBody),
+    });
 
-  if (contentType.includes("application/json")) {
-    const payload = await res.json();
-    const finalMessage =
-      payload?.message || payload?.reply || "No message returned.";
+    if (!res.ok) {
+      throw new Error(await readErrorDetails(res));
+    }
 
-    if (onToken) onToken(finalMessage);
-    return finalMessage;
+    const contentType = res.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const payload = await res.json();
+      const finalMessage =
+        payload?.message || payload?.reply || "No message returned.";
+
+      if (onToken) onToken(finalMessage);
+      return finalMessage;
+    }
+
+    if (!res.body) throw new Error("No response body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      fullText += chunk;
+
+      if (onToken) onToken(chunk);
+    }
+
+    return fullText;
+  })();
+
+  inFlightRequests.set(requestKey, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    inFlightRequests.delete(requestKey);
   }
-
-  if (!res.body) throw new Error("No response body");
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let fullText = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    const chunk = decoder.decode(value);
-    fullText += chunk;
-
-    if (onToken) onToken(chunk);
-  }
-
-  return fullText;
 }
 
 // ===============================
@@ -159,7 +181,8 @@ export async function createChat() {
 // 📜 GET CHATS (Sidebar)
 // ===============================
 export async function getChats() {
-  const res = await fetch(`${API_URL}/chats`);
+  const userId = encodeURIComponent(getOrCreateUserId());
+  const res = await fetch(`${API_URL}/chats?userId=${userId}`);
   if (res.status === 404) {
     return { chats: [] };
   }
@@ -196,7 +219,9 @@ export async function pickWorkspace() {
 }
 
 export async function deleteChat(chatId) {
-  const res = await fetch(`${API_URL}/chats/${chatId}`, {
+  const userId = encodeURIComponent(getOrCreateUserId());
+  const encodedChatId = encodeURIComponent(chatId);
+  const res = await fetch(`${API_URL}/chats/${encodedChatId}?userId=${userId}`, {
     method: "DELETE",
   });
 
