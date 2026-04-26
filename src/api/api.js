@@ -161,12 +161,14 @@ export async function createChat() {
 export async function getChats() {
   const res = await fetch(`${API_URL}/chats`);
   if (res.status === 404) {
-    return [];
+    return { chats: [] };
   }
   if (!res.ok) {
     throw new Error(`Failed to load chats: ${res.status}`);
   }
-  return res.json();
+  const data = await res.json();
+  console.log("Chats API response:", data);
+  return data;
 }
 
 export async function getWorkspaces() {

@@ -152,7 +152,11 @@ export default function ChatPage() {
     const loadChats = async () => {
       try {
         const data = await getChats();
-        setChats(data.map(normalizeChat));
+        if (!data || !Array.isArray(data.chats)) {
+          setChats([]);
+          return;
+        }
+        setChats(data.chats || []);
       } catch (err) {
         console.error(err);
         setError("Couldn't load chat history.");
@@ -272,7 +276,9 @@ export default function ChatPage() {
 
   const refreshChats = async (preferredChatId = chatId) => {
     const data = await getChats();
-    const normalizedChats = data.map(normalizeChat);
+    const normalizedChats = !data || !Array.isArray(data.chats)
+      ? []
+      : (data.chats || []).map(normalizeChat);
     setChats(normalizedChats);
 
     if (!preferredChatId) return;
