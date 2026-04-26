@@ -1,7 +1,9 @@
-const API_URL = "http://127.0.0.1:8000/chat";
+const API_URL = (import.meta.env.VITE_API_URL?.trim() || "").replace(/\/+$/, "");
+
+console.log(API_URL);
 
 export async function streamMessage(message, model, onToken) {
-  const res = await fetch(API_URL, {
+  const res = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

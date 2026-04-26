@@ -7,18 +7,10 @@ Vite + React frontend prepared for Phase 1 deployment on Vercel.
 Create a local `.env` from `.env.example`:
 
 ```bash
-VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_URL=https://your-api.example.workers.dev
 ```
 
-For Vercel, set `VITE_API_BASE_URL` to a temporary public URL that forwards to your current local FastAPI backend.
-
-Example temporary backend tunnel:
-
-```bash
-cloudflared tunnel --url http://127.0.0.1:8000
-```
-
-Then use the generated `https://...trycloudflare.com` URL as `VITE_API_BASE_URL` in Vercel.
+For Vercel, set `VITE_API_URL` to your deployed Cloudflare Worker URL.
 
 ## Local Run
 
@@ -41,11 +33,9 @@ Recommended Vercel settings:
 - Root Directory: `frontend-react`
 - Build Command: `npm run build`
 - Output Directory: `dist`
-- Environment Variable: `VITE_API_BASE_URL=https://YOUR-TEMP-BACKEND.trycloudflare.com`
+- Environment Variable: `VITE_API_URL=https://YOUR-WORKER.workers.dev`
 
 ## Phase 1 Scope
 
 - Frontend is deployable to Vercel
 - Backend URL is environment-driven
-- Existing local backend can stay in place temporarily
-- Cloudflare Worker API migration happens in Phase 2

@@ -1,17 +1,15 @@
-const DEFAULT_LOCAL_API_URL = "http://127.0.0.1:8000";
-const rawApiUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const rawApiUrl = import.meta.env.VITE_API_URL?.trim() || "";
 const USER_ID_STORAGE_KEY = "callens-user-id";
 
 function normalizeApiUrl(url) {
   return url.replace(/\/+$/, "");
 }
 
-export const API_URL = normalizeApiUrl(
-  rawApiUrl ||
-    (import.meta.env.DEV ? DEFAULT_LOCAL_API_URL : window.location.origin)
-);
+export const API_URL = normalizeApiUrl(rawApiUrl);
 
-export const IS_CUSTOM_API_CONFIGURED = Boolean(rawApiUrl);
+export const IS_CUSTOM_API_CONFIGURED = Boolean(API_URL);
+
+console.log(API_URL);
 
 function getOrCreateUserId() {
   const existing = window.localStorage.getItem(USER_ID_STORAGE_KEY);

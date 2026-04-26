@@ -568,7 +568,7 @@ export default function ChatPage() {
 
     if ((!trimmedInput && !attachment) || loading) return;
     if (!backendConfigured) {
-      setError("Set VITE_API_BASE_URL in Vercel before sending messages.");
+      setError("Set VITE_API_URL before sending messages.");
       return;
     }
 
