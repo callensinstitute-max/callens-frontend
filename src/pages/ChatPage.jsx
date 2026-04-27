@@ -623,10 +623,8 @@ export default function ChatPage() {
         return;
       }
       console.error(err);
-      setError(attachment ? "Attachment failed to send." : "Message failed to send.");
-      updateLastAssistantMessage(
-        `Sorry, something went wrong. ${err.message || ""}`.trim()
-      );
+      setError("Something went wrong. Please try again.");
+      updateLastAssistantMessage("Something went wrong. Please try again.");
     } finally {
       clearActiveRequest(controller);
       setLoading(false);

@@ -1,4 +1,5 @@
-const rawApiUrl = import.meta.env.VITE_API_URL?.trim() || "";
+const DEFAULT_API_URL = "https://callens-ai-worker.callens-institute.workers.dev";
+const rawApiUrl = import.meta.env.VITE_API_URL?.trim() || DEFAULT_API_URL;
 const USER_ID_STORAGE_KEY = "callens-user-id";
 const inFlightRequests = new Map();
 
@@ -62,23 +63,14 @@ export async function streamMessage(
   workspaceRoot,
   signal
 ) {
-  const userId = getOrCreateUserId();
-  const requestBody = {
-    message,
-    chat_id: chatId,
-    userId,
-    stream: true,
-    model,
-    display_message: displayMessage,
-    workspace_root: workspaceRoot,
-  };
+  const requestBody = { message };
   const requestKey = `stream:${chatId || "new"}:${normalizeForRequestKey(message)}`;
   if (inFlightRequests.has(requestKey)) {
     return inFlightRequests.get(requestKey);
   }
 
   const requestPromise = (async () => {
-    const res = await fetch(`${API_URL}/chat`, {
+    const res = await fetch(API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -91,34 +83,14 @@ export async function streamMessage(
       throw new Error(await readErrorDetails(res));
     }
 
-    const contentType = res.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      const payload = await res.json();
-      const finalMessage =
-        payload?.message || payload?.reply || "No message returned.";
-
-      if (onToken) onToken(finalMessage);
-      return finalMessage;
+    const payload = await res.json();
+    const finalMessage = String(payload?.reply || "").trim();
+    if (!finalMessage) {
+      throw new Error("Empty AI response");
     }
 
-    if (!res.body) throw new Error("No response body");
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let fullText = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-      fullText += chunk;
-
-      if (onToken) onToken(chunk);
-    }
-
-    return fullText;
+    if (onToken) onToken(finalMessage);
+    return finalMessage;
   })();
 
   inFlightRequests.set(requestKey, requestPromise);
