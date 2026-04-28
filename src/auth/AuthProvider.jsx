@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
           ready: true,
           token: null,
           user: null,
-          authError: `Only ${ALLOWED_LOGIN_EMAIL} can access this app.`,
+          authError: "This Google account is not authorized to access this app.",
         });
         return;
       }

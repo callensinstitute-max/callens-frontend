@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useAuth } from "../auth/useAuth";
-import { ALLOWED_LOGIN_EMAIL } from "../auth/firebase";
 
 export default function LoginScreen() {
   const { signIn, authError } = useAuth();
@@ -30,7 +29,7 @@ export default function LoginScreen() {
           Sign in to Callens AI
         </h1>
         <p className="mt-3 text-sm leading-6 text-gray-400">
-          This app is private. Only <span className="font-medium text-white">{ALLOWED_LOGIN_EMAIL}</span> can sign in.
+          This app is private. Sign in with your authorized Google account to continue.
         </p>
 
         <button
