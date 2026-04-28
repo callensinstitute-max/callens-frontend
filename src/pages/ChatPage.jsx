@@ -2,26 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   API_URL,
   IS_CUSTOM_API_CONFIGURED,
-  addMemoryFact,
-  clearMemory,
-  createChat,
-  deleteMemoryEpisode,
-  deleteMemoryFact,
-  deleteChat,
-  getMemory,
-  getChats,
-  getWorkspaces,
-  pickWorkspace,
-  renameChat,
   streamMessage,
-  uploadFile,
-  updateMemoryFact,
 } from "../api/api";
 import MessageBubble from "../components/MessageBubble";
 import Sidebar from "../components/Sidebar";
 
 const INTERNAL_MODEL = "auto";
-const WORKSPACE_STORAGE_KEY = "callens-selected-workspace";
 const SEND_DEBOUNCE_MS = 400;
 const isProduction = import.meta.env.PROD;
 const isDevelopment = import.meta.env.DEV;
@@ -88,6 +74,10 @@ function normalizeChat(chat) {
   };
 }
 
+function makeLocalChatId() {
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function isImageFile(file) {
   return file?.type?.startsWith("image/");
 }
@@ -121,7 +111,7 @@ export default function ChatPage() {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [workspaces, setWorkspaces] = useState([]);
-  const [selectedWorkspace, setSelectedWorkspace] = useState("");
+  const [selectedWorkspace, setSelectedWorkspace] = useState("Worker chat");
   const [pickingWorkspace, setPickingWorkspace] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [memory, setMemory] = useState({ facts: [], episodes: [] });
@@ -153,74 +143,8 @@ export default function ChatPage() {
   }, [input, pendingAttachment]);
 
   useEffect(() => {
-    if (!backendConfigured) return;
-
-    const loadChats = async () => {
-      try {
-        const data = await getChats();
-        if (!data || !Array.isArray(data.chats)) {
-          setChats([]);
-          return;
-        }
-        setChats(data.chats || []);
-      } catch (err) {
-        console.error(err);
-        setError("Couldn't load chat history.");
-      }
-    };
-
-    loadChats();
+    setWorkspaces([{ name: "Worker chat", path: "worker-chat" }]);
   }, []);
-
-  useEffect(() => {
-    if (!showSettings) return;
-
-    const loadMemoryState = async () => {
-      try {
-        setMemoryLoading(true);
-        const data = await getMemory();
-        setMemory({
-          facts: Array.isArray(data.facts) ? data.facts : [],
-          episodes: Array.isArray(data.episodes) ? data.episodes : [],
-        });
-      } catch (err) {
-        console.error(err);
-        setError("Couldn't load memory.");
-      } finally {
-        setMemoryLoading(false);
-      }
-    };
-
-    loadMemoryState();
-  }, [showSettings]);
-
-  useEffect(() => {
-    if (!backendConfigured) return;
-
-    const loadWorkspaces = async () => {
-      try {
-        const data = await getWorkspaces();
-        const storedWorkspace = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
-        const availablePaths = data.items.map((item) => item.path);
-        const nextWorkspace = availablePaths.includes(storedWorkspace)
-          ? storedWorkspace
-          : data.current;
-
-        setWorkspaces(data.items);
-        setSelectedWorkspace(nextWorkspace || "");
-      } catch (err) {
-        console.error(err);
-        setError("Couldn't load workspaces.");
-      }
-    };
-
-    loadWorkspaces();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedWorkspace) return;
-    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, selectedWorkspace);
-  }, [selectedWorkspace]);
 
   useEffect(() => {
     return () => {
@@ -285,21 +209,7 @@ export default function ChatPage() {
     });
   };
 
-  const refreshChats = async (preferredChatId = chatId) => {
-    const data = await getChats();
-    const normalizedChats = !data || !Array.isArray(data.chats)
-      ? []
-      : (data.chats || []).map(normalizeChat);
-    setChats(normalizedChats);
-
-    if (!preferredChatId) return;
-
-    const matchingChat = normalizedChats.find((chat) => chat.id === preferredChatId);
-    if (matchingChat) {
-      setChatId(matchingChat.id);
-      setMessages(matchingChat.messages || []);
-    }
-  };
+  const refreshChats = async () => {};
 
   const addOrUpdateChat = (chat) => {
     const normalizedChat = normalizeChat(chat);
@@ -366,13 +276,12 @@ export default function ChatPage() {
 
   const ensureChat = async () => {
     if (chatId) return chatId;
-
-    const newChat = normalizeChat(await createChat());
-
-    if (!newChat.id) {
-      throw new Error("Backend did not return a valid chat id");
-    }
-
+    const newChat = normalizeChat({
+      id: makeLocalChatId(),
+      title: "New Chat",
+      title_mode: "auto",
+      messages: [],
+    });
     addOrUpdateChat(newChat);
     setChatId(newChat.id);
     return newChat.id;
@@ -409,7 +318,6 @@ export default function ChatPage() {
 
   const handleDeleteChat = async (targetChatId) => {
     try {
-      await deleteChat(targetChatId);
       setChats((prev) => prev.filter((chat) => chat.id !== targetChatId));
 
       if (chatId === targetChatId) {
@@ -423,11 +331,14 @@ export default function ChatPage() {
 
   const handleRenameChat = async (targetChatId, title) => {
     try {
-      const updatedChat = normalizeChat(await renameChat(targetChatId, title));
-      addOrUpdateChat(updatedChat);
+      setChats((prev) =>
+        prev.map((item) =>
+          item.id === targetChatId ? { ...item, title, title_mode: "manual" } : item
+        )
+      );
 
       if (chatId === targetChatId) {
-        setChatId(updatedChat.id);
+        setChatId(targetChatId);
       }
     } catch (err) {
       console.error(err);
@@ -439,26 +350,17 @@ export default function ChatPage() {
     try {
       setPickingWorkspace(true);
       setError("");
-      const data = await pickWorkspace();
-
-      if (!data.picked) return;
-
-      setWorkspaces(data.items || []);
-      setSelectedWorkspace(data.picked.path);
+      setSelectedWorkspace("Worker chat");
     } catch (err) {
       console.error(err);
-      setError("Couldn't open folder picker.");
+      setError("Something went wrong");
     } finally {
       setPickingWorkspace(false);
     }
   };
 
   const refreshMemory = async () => {
-    const data = await getMemory();
-    setMemory({
-      facts: Array.isArray(data.facts) ? data.facts : [],
-      episodes: Array.isArray(data.episodes) ? data.episodes : [],
-    });
+    return;
   };
 
   const handleOpenSettings = () => {
@@ -480,16 +382,31 @@ export default function ChatPage() {
       setMemorySaving(true);
       setError("");
       if (editingFactId) {
-        await updateMemoryFact(editingFactId, text, "manual");
+        setMemory((prev) => ({
+          ...prev,
+          facts: prev.facts.map((fact) =>
+            fact.id === editingFactId ? { ...fact, text, category: "manual" } : fact
+          ),
+        }));
       } else {
-        await addMemoryFact(text, "manual");
+        setMemory((prev) => ({
+          ...prev,
+          facts: [
+            {
+              id: makeLocalChatId(),
+              text,
+              category: "manual",
+              times_seen: 1,
+            },
+            ...prev.facts,
+          ],
+        }));
       }
-      await refreshMemory();
       setMemoryDraft("");
       setEditingFactId(null);
     } catch (err) {
       console.error(err);
-      setError("Couldn't save memory.");
+      setError("Something went wrong");
     } finally {
       setMemorySaving(false);
     }
@@ -503,67 +420,55 @@ export default function ChatPage() {
   const handleDeleteFact = async (factId) => {
     try {
       setError("");
-      await deleteMemoryFact(factId);
+      setMemory((prev) => ({
+        ...prev,
+        facts: prev.facts.filter((fact) => fact.id !== factId),
+      }));
       if (editingFactId === factId) {
         setEditingFactId(null);
         setMemoryDraft("");
       }
-      await refreshMemory();
     } catch (err) {
       console.error(err);
-      setError("Couldn't delete memory.");
+      setError("Something went wrong");
     }
   };
 
   const handleDeleteEpisode = async (episodeId) => {
     try {
       setError("");
-      await deleteMemoryEpisode(episodeId);
-      await refreshMemory();
+      setMemory((prev) => ({
+        ...prev,
+        episodes: prev.episodes.filter((episode) => episode.id !== episodeId),
+      }));
     } catch (err) {
       console.error(err);
-      setError("Couldn't delete memory episode.");
+      setError("Something went wrong");
     }
   };
 
   const handleClearAllMemory = async () => {
     try {
       setError("");
-      await clearMemory();
       setMemory({ facts: [], episodes: [] });
       setMemoryDraft("");
       setEditingFactId(null);
     } catch (err) {
       console.error(err);
-      setError("Couldn't clear memory.");
+      setError("Something went wrong");
     }
   };
 
-  const sendPendingAttachment = async (id, file, userPrompt, controller) => {
+  const sendPendingAttachment = async (_id, file, userPrompt, controller) => {
     const prompt = userPrompt.trim() || getDefaultAttachmentPrompt(file);
     const displayMessage = buildAttachmentMessage(file, userPrompt);
 
     appendOptimisticMessages(displayMessage);
 
-    const res = await uploadFile(
-      file,
-      id,
-      INTERNAL_MODEL,
-      prompt,
-      displayMessage,
-      selectedWorkspace,
-      controller.signal
-    );
-
-    if (res.kind === "image") {
-      updateLastAssistantMessage(res.analysis || "No image analysis returned.");
-      return;
-    }
-
     let fullResponse = "";
     await streamMessage(
-      `Please analyze the uploaded file "${res.filename}" according to this prompt:\n${prompt}\n\nFile content:\n${res.content}`,
-      id,
+      `Please analyze the attached file "${file.name}". User prompt: ${prompt}`,
+      null,
       INTERNAL_MODEL,
       (token) => {
         fullResponse += token;
@@ -623,8 +528,8 @@ export default function ChatPage() {
         return;
       }
       console.error(err);
-      setError("Something went wrong. Please try again.");
-      updateLastAssistantMessage("Something went wrong. Please try again.");
+      setError("Something went wrong");
+      updateLastAssistantMessage("Something went wrong");
     } finally {
       clearActiveRequest(controller);
       setLoading(false);
