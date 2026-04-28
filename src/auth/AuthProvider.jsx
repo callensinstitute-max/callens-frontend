@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { onIdTokenChanged } from "firebase/auth";
 import { AuthContext } from "./AuthContext";
-import { auth, signInWithGoogle, signOutUser } from "./firebase";
+import {
+  ALLOWED_LOGIN_EMAIL,
+  auth,
+  signInWithGoogle,
+  signOutUser,
+} from "./firebase";
 
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState({
@@ -21,6 +26,18 @@ export function AuthProvider({ children }) {
         return;
       }
 
+      const normalizedEmail = String(user.email || "").trim().toLowerCase();
+      if (normalizedEmail !== ALLOWED_LOGIN_EMAIL) {
+        await signOutUser();
+        setAuthState({
+          ready: true,
+          token: null,
+          user: null,
+          authError: `Only ${ALLOWED_LOGIN_EMAIL} can access this app.`,
+        });
+        return;
+      }
+
       const token = await user.getIdToken();
       setAuthState({
         ready: true,
@@ -31,6 +48,7 @@ export function AuthProvider({ children }) {
           email: user.email || "",
           photoURL: user.photoURL || "",
         },
+        authError: "",
       });
     });
 

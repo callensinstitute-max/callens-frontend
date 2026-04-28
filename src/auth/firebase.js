@@ -15,6 +15,8 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+export const ALLOWED_LOGIN_EMAIL = "arpisaxena9798@gmail.com";
+
 const missingConfig = Object.entries(firebaseConfig)
   .filter(([, value]) => !String(value || "").trim())
   .map(([key]) => key);

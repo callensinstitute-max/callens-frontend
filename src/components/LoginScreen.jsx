@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "../auth/useAuth";
+import { ALLOWED_LOGIN_EMAIL } from "../auth/firebase";
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { signIn, authError } = useAuth();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -29,8 +30,7 @@ export default function LoginScreen() {
           Sign in to Callens AI
         </h1>
         <p className="mt-3 text-sm leading-6 text-gray-400">
-          This app is locked to your Google account. Sign in with Firebase Google
-          Login to continue.
+          This app is private. Only <span className="font-medium text-white">{ALLOWED_LOGIN_EMAIL}</span> can sign in.
         </p>
 
         <button
@@ -43,6 +43,7 @@ export default function LoginScreen() {
         </button>
 
         {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
+        {!error && authError ? <p className="mt-4 text-sm text-red-400">{authError}</p> : null}
       </div>
     </div>
   );
