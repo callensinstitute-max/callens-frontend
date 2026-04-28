@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../auth/useAuth";
 import {
   API_URL,
   IS_CUSTOM_API_CONFIGURED,
@@ -102,6 +103,7 @@ function getDefaultAttachmentPrompt(file) {
 }
 
 export default function ChatPage() {
+  const { user, signOut } = useAuth();
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -110,13 +112,13 @@ export default function ChatPage() {
   const [error, setError] = useState("");
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState(null);
-  const [workspaces, setWorkspaces] = useState([]);
+  const [workspaces] = useState([{ name: "Worker chat", path: "worker-chat" }]);
   const [selectedWorkspace, setSelectedWorkspace] = useState("Worker chat");
   const [pickingWorkspace, setPickingWorkspace] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [memory, setMemory] = useState({ facts: [], episodes: [] });
   const [memoryDraft, setMemoryDraft] = useState("");
-  const [memoryLoading, setMemoryLoading] = useState(false);
+  const [memoryLoading] = useState(false);
   const [memorySaving, setMemorySaving] = useState(false);
   const [editingFactId, setEditingFactId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -141,10 +143,6 @@ export default function ChatPage() {
     const nextHeight = Math.min(textareaRef.current.scrollHeight, 180);
     textareaRef.current.style.height = `${nextHeight}px`;
   }, [input, pendingAttachment]);
-
-  useEffect(() => {
-    setWorkspaces([{ name: "Worker chat", path: "worker-chat" }]);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -359,10 +357,6 @@ export default function ChatPage() {
     }
   };
 
-  const refreshMemory = async () => {
-    return;
-  };
-
   const handleOpenSettings = () => {
     setError("");
     setShowSettings(true);
@@ -528,7 +522,7 @@ export default function ChatPage() {
         return;
       }
       console.error(err);
-      setError("Something went wrong");
+      setError(err?.message || "Something went wrong");
       updateLastAssistantMessage("Something went wrong");
     } finally {
       clearActiveRequest(controller);
@@ -627,6 +621,9 @@ export default function ChatPage() {
               >
                 {selectedWorkspace || "Loading workspace..."}
               </div>
+              <div className="mt-2 text-xs text-gray-400">
+                Signed in as {user?.email || "Unknown user"}
+              </div>
               {isDevelopment && (
                 <div
                   className={`mt-2 inline-flex max-w-xl items-center rounded-full px-3 py-1 text-[11px] font-medium ${
@@ -660,6 +657,14 @@ export default function ChatPage() {
                     className="w-full rounded-xl bg-white/8 px-4 py-3 text-left text-sm text-white transition hover:bg-white/12 disabled:opacity-60"
                   >
                     {pickingWorkspace ? "Opening..." : "Open Folder"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={signOut}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
+                  >
+                    Sign out
                   </button>
 
                   <div className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-500">
